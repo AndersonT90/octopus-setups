@@ -21,6 +21,9 @@ function Invoke-AtualizacaoMother {
         return
     }
 
+    Write-Host ''
+    Write-Host 'OFlow Mother - atualizacao (script rev 2)' -ForegroundColor Cyan
+
     try {
         Passo 'Versao publicada'
         $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repositorio/releases/latest" -Headers @{ 'User-Agent' = 'OFlow-Setup' }
