@@ -61,3 +61,21 @@ de tag anotada do repositorio do produto, com proveniencia em `provenance.json`.
 Qualquer erro para a execucao com uma linha `ERRO:` dizendo o motivo. O
 atualizador da stack imprime um ID de execucao para retomada (`--continuar <id>`)
 e mantem a geracao anterior para rollback (`--rollback <id>`).
+
+## Testes
+
+`tests/` exercita os scripts contra uma release falsa servida localmente
+(`tests/fixture-release.py`), sem tocar em cliente nenhum:
+
+```bash
+bash tests/test-mother-sh.sh    # mother.sh e onpremise.sh
+bash tests/test-mother-ps1.sh   # mother.ps1, requer pwsh
+```
+
+Cobrem o caminho feliz, o caso "ja esta na versao publicada", a recusa quando o
+`SHA256SUMS` diverge e — no PowerShell — a garantia de que o script **nao encerra a
+sessao do operador**, que foi o defeito observado em producao em 2026-09-08.
+
+O CI roda tudo em `ubuntu-latest`, inclusive o PowerShell, via `pwsh`, que ja vem
+instalado no runner. Runner Windows custa o dobro de minutos e nao e necessario
+para o que esses testes verificam.
