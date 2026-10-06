@@ -58,8 +58,10 @@ printf '  SHA-256 confere\n'
 passo 'Execucao'
 chmod +x "$trabalho/$nome"
 printf '  A partir daqui quem conduz e o %s.\n' "$nome"
+entrada=/dev/stdin
+if [ "$MODO_TESTE" != 1 ] && { : < /dev/tty; } 2>/dev/null; then entrada=/dev/tty; fi
 if [ "$operacao" = atualizar ]; then
-    "$trabalho/$nome" --plataforma "$plataforma" "$@"
+    "$trabalho/$nome" --plataforma "$plataforma" "$@" < "$entrada"
 else
-    "$trabalho/$nome" "$@"
+    "$trabalho/$nome" "$@" < "$entrada"
 fi
