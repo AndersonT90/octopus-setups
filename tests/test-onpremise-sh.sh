@@ -87,6 +87,9 @@ saida=$(executar "$trabalho" "$base"); derrubar_fixture "$trabalho"
 verificar 'recusa script com soma divergente' 'SHA-256 divergente' "$saida"
 recusar 'nao executa script corrompido' 'EXECUTADO' "$saida"
 
+TESTES=$((TESTES + 1))
+grep -q '< /dev/tty' "$RAIZ/onpremise.sh" || falhar "onpremise.sh deve ler a confirmacao do terminal, pois em curl | bash o stdin e o proprio script"
+
 if [ "$FALHAS" -ne 0 ]; then
     printf 'Tests: %s, Failed: %s\n' "$TESTES" "$FALHAS"
     exit 1
