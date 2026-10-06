@@ -30,7 +30,7 @@ derrubar_fixture() { kill "$(cat "$1/pid")" 2>/dev/null || true; }
 
 executar() {
     trabalho=$1; base=$2
-    OFLOW_MODO_TESTE=1 OFLOW_API_BASE="$base" OFLOW_REPOSITORIO="teste/fixture" OFLOW_DESTINO="$trabalho/destino" \
+    TEMP="$trabalho" OFLOW_MODO_TESTE=1 OFLOW_API_BASE="$base" OFLOW_REPOSITORIO="teste/fixture" OFLOW_DESTINO="$trabalho/destino" \
         pwsh -NoProfile -Command ". '$RAIZ/mother.ps1'; Write-Host 'SESSAO-VIVA'" 2>&1
 }
 
