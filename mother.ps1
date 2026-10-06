@@ -71,7 +71,7 @@ function Invoke-AtualizacaoMother {
         Passo 'Preparacao'
         $extraido = Join-Path $trabalho 'pacote'
         Expand-Archive -LiteralPath $arquivo -DestinationPath $extraido -Force
-        Get-ChildItem -LiteralPath $extraido -Recurse | Unblock-File
+        if ($IsWindows -ne $false) { Get-ChildItem -LiteralPath $extraido -Recurse | Unblock-File }
         $instalador = Join-Path $extraido 'instalar-windows.ps1'
         if (-not (Test-Path -LiteralPath $instalador)) { throw 'instalar-windows.ps1 ausente no pacote.' }
         $configuracaoCliente = Join-Path $destino 'appsettings.json'
