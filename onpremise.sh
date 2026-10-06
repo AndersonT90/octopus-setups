@@ -1,24 +1,29 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-REPOSITORIO=AndersonT90/octopus-setups
+REPOSITORIO=${OFLOW_REPOSITORIO:-AndersonT90/octopus-setups}
+API=${OFLOW_API_BASE:-https://api.github.com}
+VERSAO_KERNEL=${OFLOW_VERSAO_KERNEL:-/proc/version}
+MODO_TESTE=${OFLOW_MODO_TESTE:-0}
 
 passo() { printf '\n== %s\n' "$1"; }
 erro() { printf '\nERRO: %s\n' "$1" >&2; printf 'Nada foi deixado pela metade. Envie esta saida para o time de desenvolvimento.\n' >&2; exit 1; }
 
-[ "$(id -u)" -eq 0 ] || erro "Execute com sudo."
-. /etc/os-release 2>/dev/null || erro "Distribuicao nao identificada; suportado somente Ubuntu ou Debian."
+[ "$MODO_TESTE" = 1 ] || [ "$(id -u)" -eq 0 ] || erro "Execute com sudo."
+. "${OFLOW_OS_RELEASE:-/etc/os-release}" 2>/dev/null || erro "Distribuicao nao identificada; suportado somente Ubuntu ou Debian."
 case "${ID:-}${ID_LIKE:-}" in *ubuntu*|*debian*) ;; *) erro "Suportado somente Ubuntu ou Debian; encontrado ${PRETTY_NAME:-desconhecido}." ;; esac
 for programa in curl jq docker; do
     command -v "$programa" >/dev/null 2>&1 || erro "Instale $programa antes de continuar."
 done
 docker info >/dev/null 2>&1 || erro "O Docker nao esta acessivel para o root."
 
+if grep -qi microsoft "$VERSAO_KERNEL" 2>/dev/null; then plataforma=wsl; else plataforma=linux; fi
+
 passo 'Ambiente'
-printf '  %s\n  Docker %s\n' "${PRETTY_NAME:-desconhecido}" "$(docker version --format '{{.Server.Version}} {{.Server.Arch}}')"
+printf '  %s\n  Plataforma %s\n  Docker %s\n' "${PRETTY_NAME:-desconhecido}" "$plataforma" "$(docker version --format '{{.Server.Version}} {{.Server.Arch}}')"
 
 passo 'Estado da instalacao'
-existente=$(docker ps -a --format '{{.Names}}' | grep -Ec '^(oflow_father|oflow-[0-9TZ-]+-father)$' || true)
+existente=$({ docker ps -a --format '{{.Names}}'; docker ps -a --filter label=com.octopus.oflow.role=father --format 'rotulo-father'; } | grep -Ec '^(oflow_father|oflow-[0-9A-Za-z-]+-father|rotulo-father)$' || true)
 if [ "$existente" -gt 0 ]; then
     operacao=atualizar
     versao_atual=$(docker ps --filter label=com.octopus.oflow.role=father --format '{{.Image}}' | head -1)
@@ -30,7 +35,7 @@ else
 fi
 
 passo 'Script publicado'
-release=$(curl -fsSL "https://api.github.com/repos/$REPOSITORIO/releases/latest") || erro "Nao foi possivel consultar a release publicada."
+release=$(curl -fsSL "$API/repos/$REPOSITORIO/releases/latest") || erro "Nao foi possivel consultar a release publicada."
 tag=$(printf '%s' "$release" | jq -r '.tag_name')
 if [ "$operacao" = atualizar ]; then nome=atualizar-producao.sh; else nome=instalar-producao.sh; fi
 url=$(printf '%s' "$release" | jq -r --arg nome "$nome" '.assets[] | select(.name == $nome) | .browser_download_url')
@@ -53,4 +58,8 @@ printf '  SHA-256 confere\n'
 passo 'Execucao'
 chmod +x "$trabalho/$nome"
 printf '  A partir daqui quem conduz e o %s.\n' "$nome"
-"$trabalho/$nome" --plataforma linux "$@"
+if [ "$operacao" = atualizar ]; then
+    "$trabalho/$nome" --plataforma "$plataforma" "$@"
+else
+    "$trabalho/$nome" "$@"
+fi

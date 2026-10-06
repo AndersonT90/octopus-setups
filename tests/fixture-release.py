@@ -27,7 +27,13 @@ def montar_pacote(plataforma: str) -> Path:
     return caminho
 
 
-pacotes = [montar_pacote("windows"), montar_pacote("linux")]
+def montar_script(nome: str) -> Path:
+    caminho = RAIZ / nome
+    caminho.write_text(f'#!/usr/bin/env bash\nprintf "EXECUTADO {nome} ARGUMENTOS:%s\\n" "$*"\n')
+    return caminho
+
+
+pacotes = [montar_pacote("windows"), montar_pacote("linux"), montar_script("atualizar-producao.sh"), montar_script("instalar-producao.sh")]
 linhas = []
 for pacote in pacotes:
     soma = hashlib.sha256(pacote.read_bytes()).hexdigest()

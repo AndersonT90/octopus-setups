@@ -27,8 +27,11 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Exercitar mother.sh e onpremise.sh
+      - name: Exercitar mother.sh
         run: bash tests/test-mother-sh.sh
+
+      - name: Exercitar onpremise.sh
+        run: bash tests/test-onpremise-sh.sh
 
       - name: Exercitar mother.ps1
         shell: bash

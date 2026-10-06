@@ -29,8 +29,10 @@ Licenca validada: Servidor autorizado
 
 ## On-premise (stack completa)
 
-Somente **Ubuntu ou Debian**. Instala quando nao ha OFlow na maquina e atualiza
-quando ha, decidindo pelo estado real dos containers:
+Somente **Ubuntu ou Debian**, nativo ou no WSL do Windows Server. Instala quando
+nao ha OFlow na maquina e atualiza quando ha, decidindo pelo estado real dos
+containers. A plataforma (WSL ou Linux nativo) e detectada pelo kernel e repassada
+ao atualizador:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/AndersonT90/octopus-setups/main/onpremise.sh | sudo bash
