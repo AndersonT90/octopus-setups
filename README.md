@@ -23,7 +23,7 @@ binario, religa e valida. Se o servidor ja estiver na versao publicada, ele diz
 e sai sem alterar nada. Ao final:
 
 ```
-MOTHER ATUALIZADO PARA 3.15.33
+MOTHER ATUALIZADO PARA 3.15.40
 Licenca validada: Servidor autorizado
 ```
 
@@ -45,6 +45,16 @@ curl -fsSL https://raw.githubusercontent.com/AndersonT90/octopus-setups/main/onp
 ```
 
 Pre-requisitos: `curl`, `jq` e Docker acessivel ao root.
+
+## Versoes publicadas
+
+| Release | Mother | Stack on-premise (atualizador) |
+| --- | --- | --- |
+| v3.15.40 | 3.15.40 | Father 3.15.41, API 3.15.29 e Web 3.15.3 |
+
+O atualizador da stack fixa cada imagem pelo digest. Quando so o Father muda, o
+`atualizar-producao.sh` e o `SHA256SUMS.txt` da release vigente sao republicados
+e o Mother continua na versao da release.
 
 ## O que e preservado no servidor
 
