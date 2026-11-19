@@ -13,7 +13,18 @@ function Invoke-AtualizacaoMother {
     $destino = if ($env:OFLOW_DESTINO) { $env:OFLOW_DESTINO } else { 'C:\Octopus' }
     $executavelDestino = Join-Path $destino 'OFlow.Mother.exe'
     $configuracaoCliente = Join-Path $destino 'appsettings.json'
-    $comandoInstalacaoNova = "`$env:CHAVE='<64 hex>'; `$env:IV='<32 hex>'; `$env:RABBITMQ='amqp://usuario:senha@servidor:5672/'; irm https://raw.githubusercontent.com/AndersonT90/octopus-setups/main/mother.ps1 | iex"
+    function Obter-SerialRegistrado {
+        if ($env:OFLOW_MODO_TESTE -eq '1') {
+            if (Test-Path -LiteralPath $env:OFLOW_SERIAL_ARQUIVO) { return (Get-Content -LiteralPath $env:OFLOW_SERIAL_ARQUIVO -Raw).Trim() }
+            return ''
+        }
+        return [Environment]::GetEnvironmentVariable('SERIAL_MOTHER', 'Machine')
+    }
+    function Registrar-Serial($serial) {
+        if ($env:OFLOW_MODO_TESTE -eq '1') { Set-Content -LiteralPath $env:OFLOW_SERIAL_ARQUIVO -Value $serial -NoNewline; return }
+        [Environment]::SetEnvironmentVariable('SERIAL_MOTHER', $serial, 'Machine')
+    }
+    $comandoInstalacaoNova = "`$env:CHAVE='<64 hex>'; `$env:IV='<32 hex>'; `$env:RABBITMQ='amqp://usuario:senha@servidor:5672/'; `$env:SERIAL_MOTHER='<serial do Mother>'; irm https://raw.githubusercontent.com/AndersonT90/octopus-setups/main/mother.ps1 | iex"
 
     function Passo($texto) { Write-Host ''; Write-Host "== $texto" -ForegroundColor Cyan }
 
@@ -66,6 +77,14 @@ function Invoke-AtualizacaoMother {
         } else {
             throw "Instalacao nova: informe RABBITMQ com a conexao da fila do cliente. Exemplo: $comandoInstalacaoNova"
         }
+        if ($env:SERIAL_MOTHER) {
+            if ($env:SERIAL_MOTHER -notmatch '^[^\s"''=]+$') { throw 'SERIAL_MOTHER nao pode ter espaco, aspas nem sinal de igual.' }
+            Write-Host '  SERIAL_MOTHER informado'
+        } elseif ((Obter-SerialRegistrado) -or (Test-Path -LiteralPath $executavelDestino)) {
+            Write-Host '  SERIAL_MOTHER mantido'
+        } else {
+            throw "Instalacao nova: informe SERIAL_MOTHER com o serial cadastrado na licenca do cliente. Exemplo: $comandoInstalacaoNova"
+        }
 
         Passo 'Download'
         $trabalho = Join-Path $env:TEMP "oflow-mother-$versao"
@@ -104,6 +123,11 @@ function Invoke-AtualizacaoMother {
             $configuracao.ConnectionStrings | Add-Member -NotePropertyName RabbitMQ -NotePropertyValue $env:RABBITMQ -Force
             $configuracao | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configuracaoPacote -Encoding UTF8
             Write-Host '  RabbitMQ gravado na configuracao'
+        }
+
+        if ($env:SERIAL_MOTHER) {
+            Registrar-Serial $env:SERIAL_MOTHER
+            Write-Host '  SERIAL_MOTHER registrado na maquina'
         }
 
         Passo 'Instalacao'
@@ -147,7 +171,7 @@ function Invoke-AtualizacaoMother {
         Write-Host 'Nada foi deixado pela metade. Envie esta tela para o time de desenvolvimento.'
     }
     finally {
-        Remove-Item -Path Env:CHAVE, Env:IV, Env:RABBITMQ -ErrorAction SilentlyContinue
+        Remove-Item -Path Env:CHAVE, Env:IV, Env:RABBITMQ, Env:SERIAL_MOTHER -ErrorAction SilentlyContinue
     }
 }
 
