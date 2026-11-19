@@ -12,6 +12,8 @@ function Invoke-AtualizacaoMother {
     $servico = 'OFlow.Mother'
     $destino = if ($env:OFLOW_DESTINO) { $env:OFLOW_DESTINO } else { 'C:\Octopus' }
     $executavelDestino = Join-Path $destino 'OFlow.Mother.exe'
+    $configuracaoCliente = Join-Path $destino 'appsettings.json'
+    $comandoInstalacaoNova = "`$env:CHAVE='<64 hex>'; `$env:IV='<32 hex>'; `$env:RABBITMQ='amqp://usuario:senha@servidor:5672/'; irm https://raw.githubusercontent.com/AndersonT90/octopus-setups/main/mother.ps1 | iex"
 
     function Passo($texto) { Write-Host ''; Write-Host "== $texto" -ForegroundColor Cyan }
 
@@ -25,7 +27,7 @@ function Invoke-AtualizacaoMother {
     }
 
     Write-Host ''
-    Write-Host 'OFlow Mother - atualizacao (script rev 2)' -ForegroundColor Cyan
+    Write-Host 'OFlow Mother - instalacao e atualizacao (script rev 3)' -ForegroundColor Cyan
 
     try {
         Passo 'Versao publicada'
@@ -46,6 +48,23 @@ function Invoke-AtualizacaoMother {
             Write-Host ''
             Write-Host 'JA ESTA NA VERSAO PUBLICADA. Nada a fazer.' -ForegroundColor Green
             return
+        }
+
+        Passo 'Parametros'
+        if ($env:CHAVE -or $env:IV -or -not (Test-Path -LiteralPath $executavelDestino)) {
+            if (-not $env:CHAVE -or -not $env:IV) { throw "Instalacao nova: informe CHAVE e IV da licenca do cliente. Exemplo: $comandoInstalacaoNova" }
+            if ($env:CHAVE -notmatch '^[A-Fa-f0-9]{64}$') { throw 'CHAVE deve ter 64 caracteres hexadecimais.' }
+            if ($env:IV -notmatch '^[A-Fa-f0-9]{32}$') { throw 'IV deve ter 32 caracteres hexadecimais.' }
+            Write-Host '  CHAVE e IV informados'
+        } else {
+            Write-Host '  CHAVE e IV ja registrados no servico'
+        }
+        if ($env:RABBITMQ) {
+            Write-Host '  RabbitMQ informado'
+        } elseif (Test-Path -LiteralPath $configuracaoCliente) {
+            Write-Host '  RabbitMQ da configuracao atual'
+        } else {
+            throw "Instalacao nova: informe RABBITMQ com a conexao da fila do cliente. Exemplo: $comandoInstalacaoNova"
         }
 
         Passo 'Download'
@@ -74,18 +93,24 @@ function Invoke-AtualizacaoMother {
         if ($IsWindows -ne $false) { Get-ChildItem -LiteralPath $extraido -Recurse | Unblock-File }
         $instalador = Join-Path $extraido 'instalar-windows.ps1'
         if (-not (Test-Path -LiteralPath $instalador)) { throw 'instalar-windows.ps1 ausente no pacote.' }
-        $configuracaoCliente = Join-Path $destino 'appsettings.json'
+        $configuracaoPacote = Join-Path $extraido 'appsettings.json'
         if (Test-Path -LiteralPath $configuracaoCliente) {
-            Copy-Item -LiteralPath $configuracaoCliente -Destination (Join-Path $extraido 'appsettings.json') -Force
+            Copy-Item -LiteralPath $configuracaoCliente -Destination $configuracaoPacote -Force
             Write-Host '  Configuracao do cliente preservada'
-        } else {
-            Write-Host '  AVISO: instalacao nova; preencha RabbitMQ e Gates em C:\Octopus\appsettings.json depois' -ForegroundColor Yellow
+        }
+        if ($env:RABBITMQ) {
+            $configuracao = Get-Content -LiteralPath $configuracaoPacote -Raw | ConvertFrom-Json
+            if (-not $configuracao.ConnectionStrings) { $configuracao | Add-Member -NotePropertyName ConnectionStrings -NotePropertyValue ([pscustomobject]@{}) }
+            $configuracao.ConnectionStrings | Add-Member -NotePropertyName RabbitMQ -NotePropertyValue $env:RABBITMQ -Force
+            $configuracao | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configuracaoPacote -Encoding UTF8
+            Write-Host '  RabbitMQ gravado na configuracao'
         }
 
         Passo 'Instalacao'
         if ($env:OFLOW_MODO_TESTE -eq '1') {
             Write-Host '  MODO DE TESTE: instalador nao executado'
             Copy-Item -LiteralPath (Join-Path $extraido 'OFlow.Mother.exe') -Destination $executavelDestino -Force
+            Copy-Item -LiteralPath $configuracaoPacote -Destination $configuracaoCliente -Force
         } else {
             Push-Location $extraido
             try { & $instalador } finally { Pop-Location }
@@ -120,6 +145,9 @@ function Invoke-AtualizacaoMother {
         Write-Host ''
         Write-Host "ERRO: $($_.Exception.Message)" -ForegroundColor Red
         Write-Host 'Nada foi deixado pela metade. Envie esta tela para o time de desenvolvimento.'
+    }
+    finally {
+        Remove-Item -Path Env:CHAVE, Env:IV, Env:RABBITMQ -ErrorAction SilentlyContinue
     }
 }
 

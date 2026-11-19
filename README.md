@@ -5,6 +5,9 @@ Canal de instalacao do OFlow em servidores de cliente. Um comando por caso.
 ## Mother
 
 O Mother roda como servico no servidor do cliente e conversa com as integracoes.
+O mesmo comando instala quando o Mother nao existe na maquina e atualiza quando existe.
+
+### Atualizar
 
 **Windows Server** — PowerShell como Administrador:
 
@@ -17,6 +20,33 @@ irm https://raw.githubusercontent.com/AndersonT90/octopus-setups/main/mother.ps1
 ```bash
 curl -fsSL https://raw.githubusercontent.com/AndersonT90/octopus-setups/main/mother.sh | sudo bash
 ```
+
+A atualizacao reaproveita a configuracao do cliente (`appsettings.json`) e a `CHAVE`
+e o `IV` ja registrados no servico.
+
+### Instalar em servidor novo
+
+Na primeira instalacao, informe a `CHAVE` (64 hexadecimais) e o `IV` (32 hexadecimais)
+da licenca do cliente e a conexao da fila em `RABBITMQ`. O Gates vem preenchido no pacote.
+
+**Windows Server** — PowerShell como Administrador, numa linha:
+
+```powershell
+$env:CHAVE='<64 hex>'; $env:IV='<32 hex>'; $env:RABBITMQ='amqp://usuario:senha@servidor:5672/'; irm https://raw.githubusercontent.com/AndersonT90/octopus-setups/main/mother.ps1 | iex
+```
+
+**Ubuntu ou Debian:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AndersonT90/octopus-setups/main/mother.sh | sudo CHAVE=<64 hex> IV=<32 hex> RABBITMQ='amqp://usuario:senha@servidor:5672/' bash
+```
+
+Sem esses valores, a instalacao nova para antes do download e mostra o comando de
+exemplo. Os valores nao aparecem na saida; no Windows, o script apaga as variaveis da
+sessao ao terminar. `RABBITMQ` tambem serve numa atualizacao, para trocar so a conexao
+da fila.
+
+### O que o script faz
 
 O script busca a versao publicada, confere o SHA-256, para o servico, troca o
 binario, religa e valida. Se o servidor ja estiver na versao publicada, ele diz
@@ -50,6 +80,7 @@ Pre-requisitos: `curl`, `jq` e Docker acessivel ao root.
 
 | Release | Mother | Stack on-premise (atualizador) |
 | --- | --- | --- |
+| v3.17.6 | 3.17.6 | scripts da v3.15.40 (mesmo SHA-256) |
 | v3.15.40 | 3.15.40 | Father 3.15.41, API 3.15.29 e Web 3.15.3 |
 
 O atualizador da stack fixa cada imagem pelo digest. Quando so o Father muda, o
@@ -85,7 +116,8 @@ bash tests/test-mother-ps1.sh   # mother.ps1, requer pwsh
 ```
 
 Cobrem o caminho feliz, o caso "ja esta na versao publicada", a recusa quando o
-`SHA256SUMS` diverge e — no PowerShell — a garantia de que o script **nao encerra a
+`SHA256SUMS` diverge, a instalacao nova com e sem `CHAVE`, `IV` e `RABBITMQ`, a
+preservacao da configuracao na atualizacao e — no PowerShell — a garantia de que o script **nao encerra a
 sessao do operador**, que foi o defeito observado em producao em 2026-09-08.
 
 O CI roda tudo em `ubuntu-latest`, inclusive o PowerShell, via `pwsh`, que ja vem

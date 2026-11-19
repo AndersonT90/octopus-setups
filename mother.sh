@@ -5,6 +5,11 @@ REPOSITORIO=${OFLOW_REPOSITORIO:-AndersonT90/octopus-setups}
 API=${OFLOW_API_BASE:-https://api.github.com}
 DESTINO=${OFLOW_DESTINO:-/opt/oflow-mother}
 SERVICO=${OFLOW_SERVICO:-oflow-mother}
+AMBIENTE=${OFLOW_AMBIENTE:-/etc/oflow/mother.env}
+CHAVE=${CHAVE:-}
+IV=${IV:-}
+RABBITMQ=${RABBITMQ:-}
+COMANDO_INSTALACAO_NOVA="curl -fsSL https://raw.githubusercontent.com/AndersonT90/octopus-setups/main/mother.sh | sudo CHAVE=<64 hex> IV=<32 hex> RABBITMQ='amqp://usuario:senha@servidor:5672/' bash"
 MODO_TESTE=${OFLOW_MODO_TESTE:-0}
 
 passo() { printf '\n== %s\n' "$1"; }
@@ -38,6 +43,24 @@ if [ "$anterior" = "$versao" ]; then
     exit 0
 fi
 
+passo 'Parametros'
+if [ -n "$CHAVE" ] || [ -n "$IV" ] || [ ! -f "$AMBIENTE" ]; then
+    [ -n "$CHAVE" ] && [ -n "$IV" ] || erro "Instalacao nova: informe CHAVE e IV da licenca do cliente. Exemplo: $COMANDO_INSTALACAO_NOVA"
+    [[ "$CHAVE" =~ ^[[:xdigit:]]{64}$ ]] || erro "CHAVE deve ter 64 caracteres hexadecimais."
+    [[ "$IV" =~ ^[[:xdigit:]]{32}$ ]] || erro "IV deve ter 32 caracteres hexadecimais."
+    export CHAVE IV
+    printf '  CHAVE e IV informados\n'
+else
+    printf '  CHAVE e IV ja registrados nesta maquina\n'
+fi
+if [ -n "$RABBITMQ" ]; then
+    printf '  RabbitMQ informado\n'
+elif [ -f "$DESTINO/appsettings.json" ]; then
+    printf '  RabbitMQ da configuracao atual\n'
+else
+    erro "Instalacao nova: informe RABBITMQ com a conexao da fila do cliente. Exemplo: $COMANDO_INSTALACAO_NOVA"
+fi
+
 passo 'Download'
 trabalho=$(mktemp -d /tmp/oflow-mother-XXXXXX)
 trap 'rm -rf "$trabalho"' EXIT
@@ -62,14 +85,19 @@ chmod +x "$instalador"
 if [ -f "$DESTINO/appsettings.json" ]; then
     cp "$DESTINO/appsettings.json" "$trabalho/pacote/appsettings.json"
     printf '  Configuracao do cliente preservada\n'
-else
-    printf '  AVISO: instalacao nova; preencha RabbitMQ e Gates em %s/appsettings.json depois\n' "$DESTINO"
+fi
+if [ -n "$RABBITMQ" ]; then
+    jq --arg conexao "$RABBITMQ" '.ConnectionStrings.RabbitMQ = $conexao' "$trabalho/pacote/appsettings.json" > "$trabalho/appsettings.json" \
+        || erro "Nao foi possivel gravar o RabbitMQ na configuracao."
+    mv "$trabalho/appsettings.json" "$trabalho/pacote/appsettings.json"
+    printf '  RabbitMQ gravado na configuracao\n'
 fi
 
 passo 'Instalacao'
 if [ "$MODO_TESTE" = 1 ]; then
     mkdir -p "$DESTINO"
     cp "$trabalho/pacote/OFlow.Mother" "$DESTINO/OFlow.Mother"
+    cp "$trabalho/pacote/appsettings.json" "$DESTINO/appsettings.json"
     printf '  MODO DE TESTE: instalador nao executado\n'
 else
     (cd "$trabalho/pacote" && ./instalar-linux.sh) || erro "O instalador falhou."
