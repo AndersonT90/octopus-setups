@@ -9,7 +9,9 @@ AMBIENTE=${OFLOW_AMBIENTE:-/etc/oflow/mother.env}
 CHAVE=${CHAVE:-}
 IV=${IV:-}
 RABBITMQ=${RABBITMQ:-}
-COMANDO_INSTALACAO_NOVA="curl -fsSL https://raw.githubusercontent.com/AndersonT90/octopus-setups/main/mother.sh | sudo CHAVE=<64 hex> IV=<32 hex> RABBITMQ='amqp://usuario:senha@servidor:5672/' bash"
+SERIAL_MOTHER=${SERIAL_MOTHER:-}
+PADRAO_SERIAL='^[^[:space:]"'"'"'=]+$'
+COMANDO_INSTALACAO_NOVA="curl -fsSL https://raw.githubusercontent.com/AndersonT90/octopus-setups/main/mother.sh | sudo CHAVE=<64 hex> IV=<32 hex> RABBITMQ='amqp://usuario:senha@servidor:5672/' SERIAL_MOTHER=<serial do Mother> bash"
 MODO_TESTE=${OFLOW_MODO_TESTE:-0}
 
 passo() { printf '\n== %s\n' "$1"; }
@@ -44,7 +46,7 @@ if [ "$anterior" = "$versao" ]; then
 fi
 
 passo 'Parametros'
-if [ -n "$CHAVE" ] || [ -n "$IV" ] || [ ! -f "$AMBIENTE" ]; then
+if [ -n "$CHAVE" ] || [ -n "$IV" ] || ! grep -q '^CHAVE=' "$AMBIENTE" 2>/dev/null; then
     [ -n "$CHAVE" ] && [ -n "$IV" ] || erro "Instalacao nova: informe CHAVE e IV da licenca do cliente. Exemplo: $COMANDO_INSTALACAO_NOVA"
     [[ "$CHAVE" =~ ^[[:xdigit:]]{64}$ ]] || erro "CHAVE deve ter 64 caracteres hexadecimais."
     [[ "$IV" =~ ^[[:xdigit:]]{32}$ ]] || erro "IV deve ter 32 caracteres hexadecimais."
@@ -59,6 +61,14 @@ elif [ -f "$DESTINO/appsettings.json" ]; then
     printf '  RabbitMQ da configuracao atual\n'
 else
     erro "Instalacao nova: informe RABBITMQ com a conexao da fila do cliente. Exemplo: $COMANDO_INSTALACAO_NOVA"
+fi
+if [ -n "$SERIAL_MOTHER" ]; then
+    [[ "$SERIAL_MOTHER" =~ $PADRAO_SERIAL ]] || erro "SERIAL_MOTHER nao pode ter espaco, aspas nem sinal de igual."
+    printf '  SERIAL_MOTHER informado\n'
+elif [ -f "$DESTINO/appsettings.json" ]; then
+    printf '  SERIAL_MOTHER mantido\n'
+else
+    erro "Instalacao nova: informe SERIAL_MOTHER com o serial cadastrado na licenca do cliente. Exemplo: $COMANDO_INSTALACAO_NOVA"
 fi
 
 passo 'Download'
@@ -91,6 +101,21 @@ if [ -n "$RABBITMQ" ]; then
         || erro "Nao foi possivel gravar o RabbitMQ na configuracao."
     mv "$trabalho/appsettings.json" "$trabalho/pacote/appsettings.json"
     printf '  RabbitMQ gravado na configuracao\n'
+fi
+
+registrar_serial() {
+    local proximo
+    mkdir -p "$(dirname "$AMBIENTE")"
+    chmod 700 "$(dirname "$AMBIENTE")"
+    proximo=$(mktemp "$trabalho/ambiente-XXXXXX")
+    [ -f "$AMBIENTE" ] && grep -v '^SERIAL_MOTHER=' "$AMBIENTE" > "$proximo" || true
+    printf 'SERIAL_MOTHER=%s\n' "$SERIAL_MOTHER" >> "$proximo"
+    chmod 600 "$proximo"
+    mv "$proximo" "$AMBIENTE"
+}
+if [ -n "$SERIAL_MOTHER" ]; then
+    registrar_serial || erro "Nao foi possivel registrar o SERIAL_MOTHER em $AMBIENTE."
+    printf '  SERIAL_MOTHER registrado no ambiente do servico\n'
 fi
 
 passo 'Instalacao'

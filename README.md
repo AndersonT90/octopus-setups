@@ -27,24 +27,26 @@ e o `IV` ja registrados no servico.
 ### Instalar em servidor novo
 
 Na primeira instalacao, informe a `CHAVE` (64 hexadecimais) e o `IV` (32 hexadecimais)
-da licenca do cliente e a conexao da fila em `RABBITMQ`. O Gates vem preenchido no pacote.
+da licenca do cliente, a conexao da fila em `RABBITMQ` e o `SERIAL_MOTHER` cadastrado na
+licenca para este servidor. O Gates vem preenchido no pacote. O serial vai para a variavel
+de maquina no Windows e para `/etc/oflow/mother.env` no Linux.
 
 **Windows Server** — PowerShell como Administrador, numa linha:
 
 ```powershell
-$env:CHAVE='<64 hex>'; $env:IV='<32 hex>'; $env:RABBITMQ='amqp://usuario:senha@servidor:5672/'; irm https://raw.githubusercontent.com/AndersonT90/octopus-setups/main/mother.ps1 | iex
+$env:CHAVE='<64 hex>'; $env:IV='<32 hex>'; $env:RABBITMQ='amqp://usuario:senha@servidor:5672/'; $env:SERIAL_MOTHER='<serial do Mother>'; irm https://raw.githubusercontent.com/AndersonT90/octopus-setups/main/mother.ps1 | iex
 ```
 
 **Ubuntu ou Debian:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AndersonT90/octopus-setups/main/mother.sh | sudo CHAVE=<64 hex> IV=<32 hex> RABBITMQ='amqp://usuario:senha@servidor:5672/' bash
+curl -fsSL https://raw.githubusercontent.com/AndersonT90/octopus-setups/main/mother.sh | sudo CHAVE=<64 hex> IV=<32 hex> RABBITMQ='amqp://usuario:senha@servidor:5672/' SERIAL_MOTHER=<serial do Mother> bash
 ```
 
 Sem esses valores, a instalacao nova para antes do download e mostra o comando de
 exemplo. Os valores nao aparecem na saida; no Windows, o script apaga as variaveis da
-sessao ao terminar. `RABBITMQ` tambem serve numa atualizacao, para trocar so a conexao
-da fila.
+sessao ao terminar. `RABBITMQ` e `SERIAL_MOTHER` tambem servem numa atualizacao, para trocar so a
+conexao da fila ou o serial.
 
 ### O que o script faz
 
@@ -116,7 +118,7 @@ bash tests/test-mother-ps1.sh   # mother.ps1, requer pwsh
 ```
 
 Cobrem o caminho feliz, o caso "ja esta na versao publicada", a recusa quando o
-`SHA256SUMS` diverge, a instalacao nova com e sem `CHAVE`, `IV` e `RABBITMQ`, a
+`SHA256SUMS` diverge, a instalacao nova com e sem `CHAVE`, `IV`, `RABBITMQ` e `SERIAL_MOTHER`, a
 preservacao da configuracao na atualizacao e — no PowerShell — a garantia de que o script **nao encerra a
 sessao do operador**, que foi o defeito observado em producao em 2026-09-08.
 
